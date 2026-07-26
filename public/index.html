@@ -168,6 +168,10 @@
   let myName = "";
   let hasBuzzed = false;
 
+  // Created once on Join (a real user-gesture, required to unlock audio on iOS/mobile)
+  // and reused for every buzz — building a fresh AudioContext per tap is what causes lag.
+  let audioCtx = null;
+
   function join() {
     const value = nameInput.value.trim();
     if (!value) {
@@ -178,6 +182,9 @@
     myNameEl.textContent = myName;
     login.style.display = "none";
     game.style.display = "flex";
+
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") audioCtx.resume();
   }
 
   joinBtn.addEventListener("click", join);
@@ -185,11 +192,42 @@
     if (e.key === "Enter") join();
   });
 
+  // Bell chime: a fundamental plus inharmonic overtones (classic bell-synthesis ratios),
+  // each decaying at a slightly different rate so it shimmers like a struck bell.
+  function playBuzzSound() {
+    const ctx = audioCtx;
+    if (!ctx) return;
+    const fundamental = 880; // A5
+    // Bell overtones aren't simple integer multiples like a string — these ratios
+    // approximate a small handbell's partials.
+    const partials = [
+      { ratio: 1,    gain: 0.35, decay: 1.4 },
+      { ratio: 2.0,  gain: 0.18, decay: 1.1 },
+      { ratio: 2.76, gain: 0.14, decay: 0.9 },
+      { ratio: 4.07, gain: 0.08, decay: 0.6 },
+      { ratio: 5.4,  gain: 0.05, decay: 0.4 },
+    ];
+
+    partials.forEach(({ ratio, gain: g, decay }) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(fundamental * ratio, ctx.currentTime);
+      gain.gain.setValueAtTime(g, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + decay);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + decay);
+    });
+  }
+
   buzzBtn.addEventListener("click", () => {
     if (hasBuzzed) return;
     hasBuzzed = true;
     buzzBtn.classList.add("buzzed");
     buzzText.textContent = "BUZZED!";
+    playBuzzSound();
     socket.emit("buzz", myName);
   });
 

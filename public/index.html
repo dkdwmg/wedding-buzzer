@@ -81,6 +81,9 @@
 
     #buzz-btn {
       position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       width: min(60vw, 280px);
       height: min(60vw, 280px);
       border-radius: 50%;
@@ -90,12 +93,16 @@
       border: 6px solid #c0392b;
       box-shadow: 0 10px 0 #7b241c, 0 16px 34px rgba(0,0,0,0.5);
       color: #fff;
-      font-size: 1.8rem;
-      font-weight: 900;
-      letter-spacing: 3px;
-      text-shadow: 0 2px 6px rgba(0,0,0,0.8), 0 0 18px rgba(0,0,0,0.6);
       cursor: pointer;
       transition: transform 0.08s, box-shadow 0.08s, background 0.15s, border-color 0.15s;
+    }
+
+    #buzz-text {
+      font-size: 1.8rem;
+      font-weight: 900;
+      letter-spacing: 16px;
+      text-shadow: 0 2px 6px rgba(0,0,0,0.8), 0 0 18px rgba(0,0,0,0.6);
+      pointer-events: none;
     }
 
     #buzz-btn:active {
@@ -139,7 +146,9 @@
 
   <div id="game">
     <div id="whoami">Playing as <span id="my-name"></span></div>
-    <button id="buzz-btn">BUZZ</button>
+    <button id="buzz-btn">
+      <span id="buzz-text">BUZZ</span>
+    </button>
     <div id="result"></div>
   </div>
 
@@ -153,6 +162,7 @@
   const joinBtn = document.getElementById("join-btn");
   const myNameEl = document.getElementById("my-name");
   const buzzBtn = document.getElementById("buzz-btn");
+  const buzzText = document.getElementById("buzz-text");
   const resultEl = document.getElementById("result");
 
   let myName = "";
@@ -179,7 +189,7 @@
     if (hasBuzzed) return;
     hasBuzzed = true;
     buzzBtn.classList.add("buzzed");
-    buzzBtn.textContent = "BUZZED!";
+    buzzText.textContent = "BUZZED!";
     socket.emit("buzz", myName);
   });
 
@@ -197,7 +207,7 @@
     if (round.buzzes.length === 0 && hasBuzzed) {
       hasBuzzed = false;
       buzzBtn.classList.remove("buzzed");
-      buzzBtn.textContent = "BUZZ";
+      buzzText.textContent = "BUZZ";
       resultEl.textContent = "";
     }
   });

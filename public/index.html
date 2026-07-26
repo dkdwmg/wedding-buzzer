@@ -49,6 +49,15 @@
 
     #name-input:focus { outline: none; border-color: #f0c040; }
 
+    #join-error {
+      color: #ff6b6b;
+      font-size: 0.95rem;
+      font-weight: 600;
+      text-align: center;
+      min-height: 1.2em;
+      margin-top: -8px;
+    }
+
     #join-btn {
       width: 100%;
       font-size: 1.3rem;
@@ -141,6 +150,7 @@
   <div id="login">
     <h1>🔔 Buzz In</h1>
     <input id="name-input" type="text" placeholder="Enter your name" maxlength="30" autocomplete="off" />
+    <div id="join-error"></div>
     <button id="join-btn">Join</button>
   </div>
 
@@ -160,6 +170,7 @@
   const game = document.getElementById("game");
   const nameInput = document.getElementById("name-input");
   const joinBtn = document.getElementById("join-btn");
+  const joinError = document.getElementById("join-error");
   const myNameEl = document.getElementById("my-name");
   const buzzBtn = document.getElementById("buzz-btn");
   const buzzText = document.getElementById("buzz-text");
@@ -178,13 +189,27 @@
       nameInput.focus();
       return;
     }
-    myName = value.slice(0, 30);
-    myNameEl.textContent = myName;
-    login.style.display = "none";
-    game.style.display = "flex";
 
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    if (audioCtx.state === "suspended") audioCtx.resume();
+    joinError.textContent = "";
+    joinBtn.disabled = true;
+
+    socket.emit("join", value, (res) => {
+      joinBtn.disabled = false;
+
+      if (!res.ok) {
+        joinError.textContent = res.reason;
+        nameInput.focus();
+        return;
+      }
+
+      myName = res.name;
+      myNameEl.textContent = myName;
+      login.style.display = "none";
+      game.style.display = "flex";
+
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === "suspended") audioCtx.resume();
+    });
   }
 
   joinBtn.addEventListener("click", join);

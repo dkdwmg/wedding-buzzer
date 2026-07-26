@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>BUZZ!</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 28px;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      padding: 24px;
+    }
+
+    /* ---------- Login screen ---------- */
+    #login {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      width: 100%;
+      max-width: 360px;
+    }
+
+    #login h1 { font-size: 2rem; color: #f0c040; }
+
+    #name-input {
+      width: 100%;
+      font-size: 1.4rem;
+      padding: 16px 18px;
+      border-radius: 12px;
+      border: 2px solid #444;
+      background: #16213e;
+      color: #eee;
+      text-align: center;
+    }
+
+    #name-input:focus { outline: none; border-color: #f0c040; }
+
+    #join-btn {
+      width: 100%;
+      font-size: 1.3rem;
+      font-weight: 800;
+      padding: 16px;
+      border-radius: 12px;
+      border: none;
+      background: #f0c040;
+      color: #1a1a2e;
+      cursor: pointer;
+    }
+
+    #join-btn:active { background: #d9ac2e; }
+
+    /* ---------- Game screen ---------- */
+    #game {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 28px;
+    }
+
+    #whoami {
+      font-size: 1.1rem;
+      color: #888;
+    }
+
+    #whoami span { color: #f0c040; font-weight: 700; }
+
+    #buzz-btn {
+      width: min(60vw, 280px);
+      height: min(60vw, 280px);
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #ff4e4e, #c0392b);
+      border: none;
+      box-shadow: 0 10px 0 #7b241c, 0 16px 34px rgba(0,0,0,0.5);
+      color: #fff;
+      font-size: 2.6rem;
+      font-weight: 900;
+      letter-spacing: 3px;
+      cursor: pointer;
+      transition: transform 0.08s, box-shadow 0.08s, background 0.15s;
+    }
+
+    #buzz-btn:active {
+      transform: translateY(8px);
+      box-shadow: 0 2px 0 #7b241c, 0 4px 15px rgba(0,0,0,0.4);
+    }
+
+    /* Stays visually "pressed" after buzzing */
+    #buzz-btn.buzzed {
+      transform: translateY(10px);
+      box-shadow: 0 0 0 #145a32, 0 4px 15px rgba(0,0,0,0.4);
+      background: radial-gradient(circle at 35% 35%, #2ecc71, #1e8449);
+      cursor: default;
+    }
+
+    #result {
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: #2ecc71;
+      text-align: center;
+      min-height: 2.2em;
+    }
+
+    #rank-badge {
+      display: none;
+      font-size: 1.1rem;
+      color: #aaa;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="login">
+    <h1>🔔 Buzz In</h1>
+    <input id="name-input" type="text" placeholder="Enter your name" maxlength="30" autocomplete="off" />
+    <button id="join-btn">Join</button>
+  </div>
+
+  <div id="game">
+    <div id="whoami">Playing as <span id="my-name"></span></div>
+    <button id="buzz-btn">BUZZ</button>
+    <div id="result"></div>
+  </div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const socket = io();
+
+  const login = document.getElementById("login");
+  const game = document.getElementById("game");
+  const nameInput = document.getElementById("name-input");
+  const joinBtn = document.getElementById("join-btn");
+  const myNameEl = document.getElementById("my-name");
+  const buzzBtn = document.getElementById("buzz-btn");
+  const resultEl = document.getElementById("result");
+
+  let myName = "";
+  let hasBuzzed = false;
+
+  function join() {
+    const value = nameInput.value.trim();
+    if (!value) {
+      nameInput.focus();
+      return;
+    }
+    myName = value.slice(0, 30);
+    myNameEl.textContent = myName;
+    login.style.display = "none";
+    game.style.display = "flex";
+  }
+
+  joinBtn.addEventListener("click", join);
+  nameInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") join();
+  });
+
+  buzzBtn.addEventListener("click", () => {
+    if (hasBuzzed) return;
+    hasBuzzed = true;
+    buzzBtn.classList.add("buzzed");
+    buzzBtn.textContent = "BUZZED!";
+    socket.emit("buzz", myName);
+  });
+
+  socket.on("state", (round) => {
+    const mine = round.buzzes.find(b => b.name.toLowerCase() === myName.toLowerCase());
+    if (mine) {
+      const rank = round.buzzes.indexOf(mine) + 1;
+      const ordinal = rank === 1 ? "1st!" : rank === 2 ? "2nd" : rank === 3 ? "3rd" : `${rank}th`;
+      resultEl.textContent = `You buzzed ${ordinal}`;
+    } else if (round.buzzes.length === 0) {
+      resultEl.textContent = "";
+    }
+
+    // A reset clears everyone's buzz list — re-arm the button for a new round.
+    if (round.buzzes.length === 0 && hasBuzzed) {
+      hasBuzzed = false;
+      buzzBtn.classList.remove("buzzed");
+      buzzBtn.textContent = "BUZZ";
+      resultEl.textContent = "";
+    }
+  });
+</script>
+</body>
+</html>
